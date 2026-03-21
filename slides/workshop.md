@@ -71,9 +71,9 @@ Automatically.
 
 ---
 
-## What you will leave with
+## What we will leave with
 
-By the end of this workshop you can answer:
+By the end of this workshop we can all answer:
 
 > *"How does a policy violation end up in a ticket?"*
 
@@ -85,7 +85,7 @@ And trace the full path:
 
 ## The repo
 
-Everything is in Git. You can follow along or run it yourself later.
+Everything is in Git. Follow along, or clone and run it yourself later.
 
 ```
 https://github.com/jo114ge/bsides_sofia__detection_policies_2026
@@ -184,8 +184,6 @@ so you can execute it the same way on any machine.
 |  = runs the same way on any machine           |
 +-----------------------------------------------+
 ```
-
-One sentence. Move on.
 
 ---
 
@@ -357,7 +355,7 @@ securityContext:
   runAsUser: 101
 ```
 
-*This manifest is well written. When we introduce a bad config, you will see exactly where it breaks.*
+*This manifest is well written. When we introduce a bad config, we will see exactly where it breaks.*
 
 ---
 
@@ -369,7 +367,7 @@ securityContext:
 
 ---
 
-## Three signals you can get today
+## Three signals we can get today
 
 **Image with `:latest` tag**
 
@@ -404,7 +402,7 @@ violation? → ALLOW          violation? → REJECT (403)
              PolicyReport              PolicyReport
 ```
 
-**Audit gives you visibility without impact.**
+**Audit gives us visibility without impact.**
 Measure the noise. Assign ownership. Then decide on enforcement.
 
 ---
@@ -534,11 +532,11 @@ resource "kubernetes_config_map" "workshop_metadata" {
 | **In workshop** | ArgoCD, Kyverno, Prometheus | demo-app base + patches |
 
 ```bash
-# Helm installs the tools (you don't touch the YAMLs)
+# Helm installs the tools (we don't touch the YAMLs)
 helm upgrade --install argocd argo/argo-cd \
   --values deploy/helm-values/argocd-values.yaml
 
-# Kustomize manages the app (you do touch these YAMLs)
+# Kustomize manages the app (we do touch these YAMLs)
 kubectl apply -k apps/demo-app/overlays/workshop
 ```
 
@@ -637,8 +635,6 @@ State 2  →  Kyverno detects the violation
 State 3  →  violation becomes observable metric
 State 4  →  the ticket
 ```
-
-Do not skip steps. The order matters so the audience sees the complete chain.
 
 ---
 
