@@ -16,7 +16,6 @@ spec:
         any:
           - resources:
               kinds:
-                - Pod
                 - Deployment
       validate:
         message: "Containers must define CPU and memory requests."
