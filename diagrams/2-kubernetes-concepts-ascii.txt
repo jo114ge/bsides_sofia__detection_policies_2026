@@ -3,10 +3,35 @@
   =====================================================
 
 
+  CONTAINER IMAGE
+  ================
+
+  Before a container runs, it needs an image.
+  An image is a read-only snapshot of the app + everything it needs.
+  It is stored in a registry and pulled when the pod starts.
+
+  +-----------------------------+       +-----------------------------+
+  |  Registry                   |       |  Node (your machine/cloud)  |
+  |  (Docker Hub, ECR, GCR...)  |       |                             |
+  |                             |       |  +----------+               |
+  |  nginx:1.29.1     <---------+-------+--| running  |               |
+  |  nginx:latest               |  pull |  | container|               |
+  |  myapp:3.2.0                |       |  +----------+               |
+  +-----------------------------+       +-----------------------------+
+
+  The image tag is critical for traceability:
+
+  nginx:latest    -- which exact version? unknown. changes silently.
+  nginx:1.29.1    -- exact version. reproducible. auditable.
+
+  This is why the disallow-latest policy exists.
+
+
   CONTAINER
   ==========
 
-  A container is a way to package an application with everything it needs to run,
+  A container is a running instance of an image.
+  It is a way to package an application with everything it needs to run,
   so you can execute it the same way on any machine.
 
   +-----------------------------------------------+
@@ -26,15 +51,40 @@
   A pod is the smallest unit in Kubernetes.
   It is where a container runs. Normally one per pod.
 
-  +-------------------------+
-  |  Pod                    |
-  |  +-------------------+  |
-  |  |   Container       |  |
-  |  |   (your app)      |  |
-  |  +-------------------+  |
-  +-------------------------+
+  +-----------------------------+
+  |  Pod                        |
+  |  +-----------------------+  |
+  |  |   Container           |  |
+  |  |   image: nginx:1.29.1 |  |
+  |  |   port: 8080          |  |
+  |  +-----------------------+  |
+  |                             |
+  |  IP: 10.42.0.12  (internal) |
+  +-----------------------------+
 
   Kubernetes does not manage containers directly — it manages pods.
+  Each pod gets its own internal IP address inside the cluster.
+  That IP is temporary: if the pod is restarted, it gets a new IP.
+
+
+  NODE
+  =====
+
+  A node is a machine (physical or virtual) where pods run.
+  The cluster has at least one node. In this workshop there is one: agent-0.
+
+  +--------------------------------------------------+
+  |  Node: k3d-workshop-agent-0                      |
+  |                                                  |
+  |   +----------+  +----------+  +----------+       |
+  |   |  Pod     |  |  Pod     |  |  Pod     |       |
+  |   | demo-app |  | kyverno  |  | grafana  |       |
+  |   +----------+  +----------+  +----------+       |
+  |                                                  |
+  |  All pods on this node share the same machine.   |
+  |  Resource contention is real — this is why       |
+  |  resource requests matter.                       |
+  +--------------------------------------------------+
 
 
   DEPLOYMENT
@@ -60,6 +110,97 @@
   |                               +----------+           |
   +-------------------------------------------------------+
 
+  The Deployment does not run pods directly.
+  It creates a ReplicaSet, which creates and monitors the pods.
+
+  Deployment --> ReplicaSet --> Pods
+
+  You interact with the Deployment. Kubernetes manages the rest.
+
+
+  SERVICE
+  ========
+
+  A Service gives a stable address to a set of pods.
+  Pods have temporary IPs. A Service has a stable DNS name and IP.
+
+  Without Service:                   With Service:
+  ----------------                   -------------
+  Pod IP: 10.42.0.12  (changes       Service: demo-app
+  Pod IP: 10.42.0.13   on restart)   ClusterIP: 10.96.0.5  (stable)
+  Pod IP: 10.42.0.14                 DNS: demo-app.demo.svc
+                                          |
+                                          | load balances across pods
+                                          v
+                                     Pod  Pod  Pod
+
+  In this workshop: demo-app has a Service of type ClusterIP.
+  It is only accessible inside the cluster — not from outside.
+
+  File: apps/demo-app/base/service.yaml
+
+
+  LABELS
+  =======
+
+  Labels are key-value pairs attached to any Kubernetes resource.
+  They are how resources find each other and how policies target them.
+
+  Example on the demo-app Deployment:
+
+  metadata:
+    labels:
+      app: demo-app          <-- used by the Service selector
+      workshop: bsides-sofia <-- added by Kustomize overlay
+      track: policy-detection
+
+  Example on the namespace:
+
+  metadata:
+    labels:
+      owner: platform-team   <-- used to enrich violation tickets
+      env: workshop
+
+  Labels have two uses in this workshop:
+  1. Routing: the Service uses labels to find which pods to send traffic to
+  2. Context: Kyverno and Prometheus use labels to enrich violation data
+
+
+  RESOURCE REQUESTS AND LIMITS
+  =============================
+
+  Every container can declare how much CPU and memory it needs.
+
+  resources:
+    requests:         <-- minimum guaranteed (scheduler uses this)
+      cpu: 100m       -- 100 millicores = 0.1 of a CPU core
+      memory: 128Mi   -- 128 mebibytes
+    limits:           <-- hard ceiling (enforced at runtime)
+      cpu: 250m
+      memory: 256Mi
+
+  What requests do:
+
+  +------------------------------------+
+  |  Node has 2 CPU cores available    |
+  |                                    |
+  |  Pod A requests 100m  <-- placed   |
+  |  Pod B requests 500m  <-- placed   |
+  |  Pod C requests 100m  <-- placed   |
+  |  Pod D requests 100m  <-- placed   |
+  |  ...                               |
+  |                                    |
+  |  Pod X requests 0m    <-- scheduler|
+  |  (no requests declared)   has no   |
+  |                           information|
+  |                           may overload node
+  +------------------------------------+
+
+  Without requests: the scheduler is flying blind.
+  With requests: the scheduler places pods on nodes that can handle them.
+
+  This is why the require-requests policy exists.
+
 
   NAMESPACE
   ==========
@@ -82,11 +223,60 @@
   In the workshop: namespace demo for the app,
   separate namespaces for kyverno, argocd and monitoring.
 
+  Namespaces do NOT provide strong security isolation.
+  They are logical separation, not a security boundary.
+  A compromised pod can still reach other namespaces by default.
+
+
+  MANIFEST
+  =========
+
+  A manifest is a YAML file that describes what you want Kubernetes to create.
+  You write the desired state. Kubernetes makes it happen.
+
+  You write:                     Kubernetes does:
+  ----------                     ----------------
+  kind: Deployment               creates a ReplicaSet
+  replicas: 2                    starts 2 pods on available nodes
+  image: nginx:1.29.1            pulls the image, runs the container
+  requests: cpu 100m             schedules on a node with enough capacity
+
+  You never say "start container on this machine".
+  You describe what you want. Kubernetes figures out how.
+
+
+  API SERVER
+  ===========
+
+  The API server is the front door of Kubernetes.
+  Every operation goes through it: kubectl apply, helm install, Argo CD sync.
+
+  kubectl apply -f deployment.yaml
+         |
+         v
+  +------------------+
+  |   API server     |  <-- authenticates the request
+  |                  |  <-- validates the YAML schema
+  |   port 6443      |  <-- runs admission webhooks (Kyverno)
+  +------------------+
+         |
+         v
+  +------------------+
+  |   etcd           |  <-- stores the desired state
+  +------------------+
+         |
+         v
+  Controllers notice the new object and act:
+  - Deployment controller creates ReplicaSet
+  - ReplicaSet controller creates Pods
+  - Scheduler assigns Pods to Nodes
+  - Kubelet on the Node starts the containers
+
 
   ADMISSION
   ==========
 
-  When a resource reaches the Kubernetes API server,
+  When a resource reaches the API server,
   before it is accepted, it passes through a checkpoint called admission.
   That is where tools like Kyverno can enter to evaluate that resource.
 
@@ -104,8 +294,8 @@
   |                    |
   |  meets policy?     |
   |   yes -> continue  |
-  |   no  -> record    |
-  |          violation |
+  |   no  -> record    |  (Audit mode)
+  |          violation |  or reject (Enforce mode)
   +--------------------+
        |
        v
@@ -116,6 +306,33 @@
        |
        v
   Resource active in the cluster
+
+
+  CRD — CUSTOM RESOURCE DEFINITION
+  ==================================
+
+  By default Kubernetes knows about Pods, Deployments, Services, etc.
+  A CRD extends Kubernetes with new resource types.
+
+  When you install Kyverno, it registers new types:
+
+  Standard Kubernetes          After Kyverno installs
+  -------------------          ----------------------
+  Pod                          Pod
+  Deployment                   Deployment
+  Service                      Service
+  Namespace                    Namespace
+  ...                          ClusterPolicy       <-- new
+                               PolicyReport        <-- new
+                               AdmissionReport     <-- new
+
+  This is why you can run:
+
+    kubectl get clusterpolicy
+    kubectl get policyreport -A
+
+  Those resource types did not exist before Kyverno was installed.
+  ArgoCD and Prometheus Operator also install their own CRDs.
 
 
   POLICY
@@ -180,26 +397,45 @@
                      Prometheus -> Grafana -> Alertmanager -> Ticket
 
 
-  SUMMARY — concept hierarchy
-  ============================
+  SUMMARY — full concept hierarchy
+  ==================================
 
   Cluster
    |
-   +-- Namespace (demo)
+   +-- Node (k3d-workshop-agent-0)
    |    |
-   |    +-- Deployment (demo-app)
+   |    +-- Namespace (demo)
+   |    |    |
+   |    |    +-- Deployment (demo-app)
+   |    |    |    |
+   |    |    |    +-- ReplicaSet (managed automatically)
+   |    |    |         |
+   |    |    |         +-- Pod (IP: 10.42.x.x, temporary)
+   |    |    |              |
+   |    |    |              +-- Container
+   |    |    |                   image: nginxinc/nginx-unprivileged:1.29.1
+   |    |    |                   requests: cpu 100m, memory 128Mi
+   |    |    |
+   |    |    +-- Service (demo-app)
+   |    |         stable DNS + IP -> routes to pods via labels
+   |    |
+   |    +-- Namespace (kyverno)
+   |    |    |
+   |    |    +-- ClusterPolicy (disallow-latest)   <-- evaluates at admission
+   |    |    +-- ClusterPolicy (require-requests)  <-- evaluates in background
+   |    |    +-- PolicyReport (demo)               <-- violation results
+   |    |
+   |    +-- Namespace (monitoring)
    |         |
-   |         +-- Pod
-   |              |
-   |              +-- Container
-   |                   image: nginxinc/nginx-unprivileged:1.29.1
+   |         +-- Prometheus  (scrapes metrics)
+   |         +-- Grafana     (visualises metrics)
+   |         +-- Alertmanager (routes alerts)
    |
-   +-- Namespace (kyverno)
+   +-- API Server  (all operations go through here)
    |    |
-   |    +-- ClusterPolicy (disallow-latest)   <-- evaluates at admission
-   |    +-- ClusterPolicy (require-requests)  <-- evaluates in background
+   |    +-- Admission Checkpoint  (Kyverno hooks in here)
+   |    +-- etcd                  (stores all desired state)
    |
-   +-- Admission Checkpoint
-        |
-        Kyverno hooks in here to evaluate each resource
+   +-- CRDs installed by Kyverno
+        ClusterPolicy, PolicyReport, AdmissionReport
 
