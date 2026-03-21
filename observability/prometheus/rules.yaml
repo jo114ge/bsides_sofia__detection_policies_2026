@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kyverno-policy-detection
+  namespace: monitoring
+spec:
+  groups:
+    - name: kyverno-policy-detection
+      rules:
+        - alert: KyvernoPolicyViolationDetected
+          expr: sum by (policy, namespace) (kyverno_policy_results_total{result="fail"}) > 0
+          for: 2m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Kyverno policy violation detected"
+            description: "Policy {{ $labels.policy }} has active failures in namespace {{ $labels.namespace }}."
+

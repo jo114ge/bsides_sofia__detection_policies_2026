@@ -1,0 +1,55 @@
+fullnameOverride: monitoring
+
+defaultRules:
+  create: false
+
+grafana:
+  enabled: true
+  adminPassword: workshop
+  service:
+    type: ClusterIP
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    replicas: 1
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    replicas: 1
+    retention: 12h
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+prometheusOperator:
+  enabled: true
+
+kubeApiServer:
+  enabled: true
+
+kubelet:
+  enabled: true
+
+coreDns:
+  enabled: true
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+

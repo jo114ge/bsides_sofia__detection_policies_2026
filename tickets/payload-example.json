@@ -1,0 +1,13 @@
+{
+  "summary": "Policy violation detected: unpinned image in demo-app",
+  "severity": "medium",
+  "owner": "platform-team",
+  "cluster": "workshop-cluster",
+  "namespace": "demo",
+  "resource": "Deployment/demo-app",
+  "policy": "disallow-latest",
+  "evidence": "Container image uses nginx:latest",
+  "remediation": "Pin the image to an approved version tag and merge through Git.",
+  "status": "open"
+}
+

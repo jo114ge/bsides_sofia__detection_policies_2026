@@ -1,0 +1,123 @@
+
+  Argo CD — How It Works
+  =======================
+
+
+  DESIRED STATE                          ACTUAL STATE
+  (Git Repository)                       (Kubernetes Cluster)
+  +--------------------------+           +--------------------------+
+  |                          |           |                          |
+  |  apps/demo-app/          |           |  namespace: demo         |
+  |  overlays/workshop/      |           |                          |
+  |    kustomization.yaml    |           |  Deployment/demo-app     |
+  |    deployment.yaml       |           |    image: nginx:1.29.1   |
+  |                          |           |    replicas: 1           |
+  |  policies/kyverno/       |           |                          |
+  |    disallow-latest.yaml  |           |  ClusterPolicy/          |
+  |    require-requests.yaml |           |    disallow-latest       |
+  |                          |           |    require-requests      |
+  +--------------------------+           +--------------------------+
+            |                                        ^
+            |                                        |
+            |          +------------------+          |
+            |          |                  |          |
+            +--------->|    Argo CD       |----------+
+            watches    |                  |  applies
+                       |  1. Detects diff |
+                       |  2. Reconciles   |
+                       |  3. Reports      |
+                       |     health       |
+                       +------------------+
+                              |
+                              | continuously compares
+                              | desired vs actual
+                              v
+
+  +-----------------------------------------------------------------------+
+  |  Reconciliation Loop (runs every ~3 minutes or on webhook)            |
+  |                                                                       |
+  |   Git state == Cluster state?                                         |
+  |                                                                       |
+  |        YES                              NO                            |
+  |         |                               |                             |
+  |         v                               v                             |
+  |    Status: Synced               Status: OutOfSync                     |
+  |    Health: Healthy              --> apply diff to cluster             |
+  |    Nothing to do                --> Status: Syncing                   |
+  |                                 --> Status: Synced (when done)        |
+  +-----------------------------------------------------------------------+
+
+
+  FULL GITOPS LIFECYCLE
+  =====================
+
+  Developer                Git Repo              Argo CD           Kubernetes
+     |                        |                     |                   |
+     |--- git push ---------->|                     |                   |
+     |                        |                     |                   |
+     |                        |<-- poll every 3m ---|                   |
+     |                        |    (or webhook)     |                   |
+     |                        |                     |                   |
+     |                        |--- diff detected -->|                   |
+     |                        |                     |                   |
+     |                        |              syncPolicy:                 |
+     |                        |              automated?                 |
+     |                        |                /        \               |
+     |                        |              YES         NO             |
+     |                        |               |           |             |
+     |                        |               |      waits for          |
+     |                        |               |      manual sync        |
+     |                        |               |                         |
+     |                        |               |--- kubectl apply ------>|
+     |                        |               |                         |
+     |                        |               |<-- resource created ----|
+     |                        |               |                         |
+     |                        |               |--- health check ------->|
+     |                        |               |<-- Healthy -------------|
+     |                        |               |                         |
+     |                        |          Status: Synced                 |
+     |                        |          Health: Healthy                |
+
+
+  SYNC POLICY IN THIS WORKSHOP
+  ============================
+
+  From gitops/argocd/demo-app.yaml:
+
+    syncPolicy:
+      automated:
+        prune: true       <-- deletes resources removed from Git
+        selfHeal: true    <-- fixes manual changes made directly in cluster
+
+  selfHeal example:
+  - Someone runs kubectl edit deployment demo-app and changes replicas to 5
+  - Argo CD detects drift from Git (replicas: 1)
+  - Argo CD reverts it back to 1 automatically
+  - Reason: Git is the source of truth, not the cluster
+
+  prune example:
+  - A Service is removed from the Git repo
+  - Argo CD deletes that Service from the cluster on next sync
+  - Without prune: orphaned resources accumulate in the cluster
+
+
+  HEALTH STATUS EXPLAINED
+  =======================
+
+  Healthy     All pods Running, no errors
+  Degraded    Pod crashlooping or ImagePullBackOff
+  Progressing Rollout in progress, waiting for pods to be Ready
+  Suspended   Manually paused by operator
+  Missing     Resource defined in Git but not found in cluster
+  Unknown     Argo CD cannot determine health (missing health check)
+
+
+  WHAT ARGO CD DOES NOT DO
+  ========================
+
+  - Does NOT run kubectl commands on your behalf outside of sync
+  - Does NOT build or push container images
+  - Does NOT manage secrets directly (use Sealed Secrets or Vault)
+  - Does NOT replace CI — it is the CD part only
+
+  CI (build, test, push image)  -->  Git commit  -->  Argo CD (deploy)

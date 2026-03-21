@@ -1,0 +1,71 @@
+
+  k3d Cluster — Local Docker Setup
+  =================================
+
+  Your Machine
+  +------------------------------------------------------------+
+  |                                                            |
+  |   kubectl / helm / k3d CLI                                 |
+  |                                                            |
+  |   KUBECONTEXT: k3d-workshop                                |
+  |                                                            |
+  +------------------------------------------------------------+
+        |            |            |            |
+        |            |            |            |
+        v            v            v            v
+  +----------+ +----------+ +----------+ +-----------+
+  |          | |          | |          | |           |
+  | k3d-     | | k3d-     | | k3d-     | | k3d-      |
+  | workshop | | workshop | | workshop | | workshop  |
+  | -server-0| | -agent-0 | | -serverlb| | -tools    |
+  |          | |          | |          | |           |
+  | rancher/ | | rancher/ | | k3d-io/  | | k3d-io/   |
+  | k3s      | | k3s      | | k3d-proxy| | k3d-tools |
+  |          | |          | |          | |           |
+  | Control  | | Worker   | | Load     | | Init      |
+  | Plane    | | Node     | | Balancer | | helper    |
+  |          | |          | |          | | (exits    |
+  | API      | | Runs     | | Port 80  | | after     |
+  | server   | | workloads| | Port 443 | | setup)    |
+  | etcd     | | (pods)   | | Port 8443| |           |
+  | scheduler| |          | |          | |           |
+  +----------+ +----------+ +----------+ +-----------+
+        |            |            |
+        +------------+            |
+               |                 |
+               v                 v
+  +------------------------+ +-----------------------+
+  |  Kubernetes Namespaces | |  External Access      |
+  |                        | |                       |
+  |  argocd                | |  localhost:8081       |
+  |  kyverno               | |  --> Argo CD UI       |
+  |  monitoring            | |                       |
+  |  demo                  | |  localhost:3000       |
+  |                        | |  --> Grafana UI       |
+  +------------------------+ +-----------------------+
+
+
+  Container roles
+  ---------------
+  server-0    Control plane. Runs the Kubernetes API server,
+              scheduler, and etcd (state store).
+
+  agent-0     Worker node. This is where your pods actually run:
+              demo-app, Kyverno, Argo CD, Prometheus, Grafana.
+
+  serverlb    Load balancer (traefik-proxy). Exposes ports
+              80, 443, and 8443 from the cluster to localhost.
+
+  tools       Short-lived helper container used by k3d during
+              cluster creation. Exits automatically once done.
+
+
+  Port bindings (host -> cluster)
+  --------------------------------
+  localhost:8443  -->  Kubernetes API server  (kubectl)
+  localhost:80    -->  cluster HTTP ingress
+  localhost:443   -->  cluster HTTPS ingress
+
+  Port-forwards added manually during workshop:
+  localhost:8081  -->  argocd-server svc  (Argo CD UI)
+  localhost:3000  -->  monitoring-grafana svc  (Grafana UI)

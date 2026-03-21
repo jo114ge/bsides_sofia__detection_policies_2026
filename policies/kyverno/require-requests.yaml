@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-requests
+  annotations:
+    policies.kyverno.io/title: Require resource requests
+    policies.kyverno.io/category: Reliability
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod, Deployment
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-cpu-and-memory-requests
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+                - Deployment
+      validate:
+        message: "Containers must define CPU and memory requests."
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - resources:
+                      requests:
+                        cpu: "?*"
+                        memory: "?*"
+

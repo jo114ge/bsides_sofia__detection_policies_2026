@@ -1,0 +1,103 @@
+
+  Policy-as-Detection for Kubernetes — Pipeline Architecture
+  BSides Sofia
+  ============================================================
+
+
+  Developer
+     |
+     | git push
+     v
+  +----------------------------------------------------------+
+  |  Git Repository                                          |
+  |                                                          |
+  |   apps/demo-app/          policies/kyverno/              |
+  |   (Kustomize overlay)     (ClusterPolicy)                |
+  |                                                          |
+  |   observability/          terraform/                     |
+  |   (PrometheusRule)        (bootstrap)                    |
+  +----------------------------------------------------------+
+         |                          |
+         | sync desired state       | terraform apply
+         | (Argo CD watches repo)   | (bootstrap only, once)
+         v                          v
+  +----------------------------------------------------------+
+  |  Kubernetes Cluster                                      |
+  |                                                          |
+  |   +----------------+      +---------------------------+  |
+  |   |   Argo CD      |----->|  Admission Checkpoint     |  |
+  |   |  (GitOps sync) |      +---------------------------+  |
+  |   +----------------+                  |                  |
+  |                                       v                  |
+  |                           +---------------------------+  |
+  |                           |   Kyverno Policy Engine   |  |
+  |                           |   validationFailureAction:|  |
+  |                           |        Audit              |  |
+  |                           +---------------------------+  |
+  |                              /                    \      |
+  |               no block      /                      \     |
+  |            (Audit mode)    /    violation recorded  \    |
+  |                           v                          v   |
+  |              +------------------+    +-------------+     |
+  |              |  Deployment      |    | PolicyReport|     |
+  |              |  demo-app        |    | (violation) |     |
+  |              +------------------+    +-------------+     |
+  |                                             |            |
+  +---------------------------------------------|------------+
+                                                |
+                                                | kyverno_policy_results_total{result="fail"}
+                                                v
+  +----------------------------------------------------------+
+  |  Observability Stack                                     |
+  |                                                          |
+  |   +------------------+       +------------------------+  |
+  |   |   Prometheus     |------>|   Grafana              |  |
+  |   |  (scrapes every  |       |   Dashboard            |  |
+  |   |   15s by default)|       |   - violations by      |  |
+  |   +------------------+       |     policy/namespace   |  |
+  |          |                   +------------------------+  |
+  |          | rule: sum(fail) > 0 for 2m                   |
+  |          v                                               |
+  |   +------------------+                                   |
+  |   |  Alertmanager    |                                   |
+  |   |  severity:warning|                                   |
+  |   +------------------+                                   |
+  +------------------------------------------+---------------+
+                                             |
+                          +------------------+------------------+
+                          |                                     |
+                          v                                     v
+              +---------------------+             +------------------------+
+              |  Ticket             |             |  Notification          |
+              |  (Jira/GitHub       |             |  (Slack / Email)       |
+              |   Issue)            |             |                        |
+              |                     |             +------------------------+
+              |  policy: disallow-  |
+              |  latest             |
+              |  resource: demo-app |
+              |  owner: platform-   |
+              |  team               |
+              |  evidence: :latest  |
+              |  remediation: pin   |
+              |  to versioned tag   |
+              +---------------------+
+                          |
+                          | fix committed to Git
+                          v
+  Developer
+     |
+     | git push (fix)
+     v
+  Git -> Argo CD -> cluster reconciles -> violation clears -> alert resolves
+
+
+  ============================================================
+  Summary flow:
+  1. Git  -->  source of truth for app, policy, and observability
+  2. Argo CD  -->  syncs Git to the cluster
+  3. Kyverno  -->  evaluates in Audit mode, records violation in PolicyReport
+  4. Prometheus  -->  collects the violation metric
+  5. Grafana / Alertmanager  -->  visibility and alerting
+  6. Ticket / Notification  -->  actionable signal with context
+  7. Fix via Git  -->  Argo CD reconciles, signal clears
+  ============================================================

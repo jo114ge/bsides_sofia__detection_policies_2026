@@ -1,0 +1,31 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest
+  annotations:
+    policies.kyverno.io/title: Disallow latest tag
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod, Deployment
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-pinned-image-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+                - Deployment
+      validate:
+        message: "Images must not use the latest tag."
+        foreach:
+          - list: "request.object.spec.template.spec.containers || request.object.spec.containers"
+            deny:
+              conditions:
+                any:
+                  - key: "{{ contains(element.image, ':latest') }}"
+                    operator: Equals
+                    value: true
+

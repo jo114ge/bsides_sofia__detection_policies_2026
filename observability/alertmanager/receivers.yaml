@@ -1,0 +1,15 @@
+route:
+  receiver: workshop-webhook
+  group_by:
+    - alertname
+    - namespace
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+
+receivers:
+  - name: workshop-webhook
+    webhook_configs:
+      - url: http://ticket-adapter.monitoring.svc.cluster.local/hooks/policy
+        send_resolved: true
+

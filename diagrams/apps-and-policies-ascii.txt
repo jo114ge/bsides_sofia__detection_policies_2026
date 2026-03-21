@@ -1,0 +1,261 @@
+
+  Apps and Policies — Business Case Map
+  ======================================
+  BSides Sofia · Policy-as-Detection for Kubernetes
+
+
+  THE APPLICATION
+  ===============
+
+  +------------------------------------------------------------------+
+  |  demo-app                                                        |
+  |  apps/demo-app/base/deployment.yaml                             |
+  |                                                                  |
+  |  What it is:   nginx web server (unprivileged variant)           |
+  |  Namespace:    demo                                              |
+  |  Owner:        platform-team                                     |
+  |  Replicas:     1 (baseline)                                      |
+  |                                                                  |
+  |  CLEAN STATE (no violations)                                     |
+  |  ----------------------------------------                       |
+  |  image:   nginxinc/nginx-unprivileged:1.29.1  <-- pinned tag    |
+  |  cpu:     requests: 100m / limits: 250m       <-- declared      |
+  |  memory:  requests: 128Mi / limits: 256Mi     <-- declared      |
+  |  runAsNonRoot: true                           <-- secure        |
+  |  allowPrivilegeEscalation: false              <-- secure        |
+  +------------------------------------------------------------------+
+            |                    |
+            | evaluated by       | evaluated by
+            v                    v
+  +-----------------+    +-----------------------+
+  |  disallow-      |    |  require-requests     |
+  |  latest         |    |                       |
+  +-----------------+    +-----------------------+
+
+
+  =====================================================================
+
+  POLICY 1 — disallow-latest
+  ===========================
+  File: policies/kyverno/disallow-latest.yaml
+  Mode: Audit (does not block)
+
+  +------------------------------------------------------------------+
+  |  WHAT IT CHECKS                                                  |
+  |                                                                  |
+  |  Rejects any container image that contains the string ":latest" |
+  |                                                                  |
+  |  BAD:   image: nginx:latest                                      |
+  |  BAD:   image: myapp:latest                                      |
+  |  GOOD:  image: nginx:1.29.1                                      |
+  |  GOOD:  image: myapp:3.2.0                                       |
+  +------------------------------------------------------------------+
+
+  BUSINESS CASE
+  -------------
+
+  Problem 1 — No traceability
+    You cannot answer: "What exact version is running in production?"
+    If a CVE is published for nginx 1.25.x, you do not know if you
+    are affected because ":latest" could be any version.
+
+  Problem 2 — Inconsistent deployments
+    ":latest" resolves to different image digests on different nodes
+    or at different times. A pod restart may pull a newer version
+    than the one running on the other replicas. You get a mixed fleet
+    without knowing it.
+
+  Problem 3 — No rollback guarantee
+    If you need to roll back, "the previous latest" no longer exists.
+    You cannot pin a rollback to a known-good version.
+
+  Detection value
+    This policy tells you: "There is a workload in your cluster
+    whose provenance you cannot verify."
+    That is a traceability and supply chain signal, not just hygiene.
+
+  Severity:  medium
+  Owner:     team responsible for the deployment
+  Fix:       pin the image to a specific version tag and commit via Git
+
+  +------------------------------------------------------------------+
+  |  VIOLATION EXAMPLE                                               |
+  |                                                                  |
+  |  Trigger:   bad-image-patch.yaml applied to demo-app            |
+  |  Result:    image changed to nginx-unprivileged:latest           |
+  |                                                                  |
+  |  PolicyReport output:                                            |
+  |  {                                                               |
+  |    "policy":    "disallow-latest",                               |
+  |    "result":    "fail",                                          |
+  |    "message":   "Images must not use the latest tag.",           |
+  |    "resource":  "Deployment/demo-app",                          |
+  |    "namespace": "demo"                                           |
+  |  }                                                               |
+  |                                                                  |
+  |  Prometheus metric:                                              |
+  |  kyverno_policy_results_total{                                   |
+  |    policy="disallow-latest",                                     |
+  |    namespace="demo",                                             |
+  |    result="fail"                                                 |
+  |  } = 1                                                           |
+  +------------------------------------------------------------------+
+
+
+  =====================================================================
+
+  POLICY 2 — require-requests
+  ============================
+  File: policies/kyverno/require-requests.yaml
+  Mode: Audit (does not block)
+
+  +------------------------------------------------------------------+
+  |  WHAT IT CHECKS                                                  |
+  |                                                                  |
+  |  Every container must declare both:                              |
+  |    resources.requests.cpu                                        |
+  |    resources.requests.memory                                     |
+  |                                                                  |
+  |  BAD:   resources: {}                                            |
+  |  BAD:   resources: (field missing entirely)                      |
+  |  GOOD:  resources:                                               |
+  |           requests:                                              |
+  |             cpu: 100m                                            |
+  |             memory: 128Mi                                        |
+  +------------------------------------------------------------------+
+
+  BUSINESS CASE
+  -------------
+
+  Problem 1 — Scheduler cannot place the pod correctly
+    Without requests, Kubernetes has no information to decide which
+    node has enough capacity. The scheduler may place the pod on an
+    already saturated node, causing latency or OOMKills for everyone
+    on that node. This is the "noisy neighbor" problem.
+
+  Problem 2 — No resource quotas possible
+    Namespace-level ResourceQuotas only work if containers declare
+    requests. If requests are missing, quotas are bypassed silently.
+    Teams can consume unlimited cluster resources.
+
+  Problem 3 — Cost attribution breaks
+    Cloud cost tools (Kubecost, OpenCost) use requests to attribute
+    costs to teams and namespaces. Without requests, the cost of that
+    workload becomes invisible and unallocated.
+
+  Problem 4 — Horizontal autoscaling does not work
+    HorizontalPodAutoscaler scales based on CPU/memory usage relative
+    to requests. A container with no requests has no baseline, so
+    autoscaling decisions become meaningless.
+
+  Detection value
+    This policy tells you: "There is a workload that may destabilize
+    its neighbors, bypass your quotas, and break your cost model."
+    It is a reliability and governance signal.
+
+  Severity:  medium
+  Owner:     team responsible for the deployment
+  Fix:       add resources.requests.cpu and memory to the container spec
+
+  +------------------------------------------------------------------+
+  |  VIOLATION EXAMPLE                                               |
+  |                                                                  |
+  |  Trigger:   bad-resources-patch.yaml applied to demo-app        |
+  |  Result:    resources set to {}                                  |
+  |                                                                  |
+  |  PolicyReport output:                                            |
+  |  {                                                               |
+  |    "policy":    "require-requests",                              |
+  |    "result":    "fail",                                          |
+  |    "message":   "Containers must define CPU and memory          |
+  |                  requests.",                                     |
+  |    "resource":  "Deployment/demo-app",                          |
+  |    "namespace": "demo"                                           |
+  |  }                                                               |
+  |                                                                  |
+  |  Prometheus metric:                                              |
+  |  kyverno_policy_results_total{                                   |
+  |    policy="require-requests",                                    |
+  |    namespace="demo",                                             |
+  |    result="fail"                                                 |
+  |  } = 1                                                           |
+  +------------------------------------------------------------------+
+
+
+  =====================================================================
+
+  POLICY-TO-SIGNAL MAP
+  ====================
+
+  Each policy produces a detection signal with a specific meaning:
+
+  Policy               Signal meaning                  Who cares
+  ---------------      ------------------------------  ----------------
+  disallow-latest      Supply chain / traceability     Security, SRE
+  require-requests     Reliability / cost governance   Platform, FinOps
+
+
+  =====================================================================
+
+  VIOLATION STATE MACHINE
+  =======================
+
+  Both policies follow the same lifecycle:
+
+  [Clean state]
+       |
+       | bad change committed and applied
+       v
+  [Violation active]
+       |
+       | Kyverno evaluates in background (background: true)
+       v
+  [PolicyReport updated]  <-- immediate, no scrape lag
+       |
+       | Prometheus scrapes kyverno_policy_results_total
+       v
+  [Metric > 0]            <-- up to 30s scrape interval
+       |
+       | alert rule: sum(fail) > 0 for 2m
+       v
+  [Alert firing]          <-- 2 minutes after metric appears
+       |
+       | Alertmanager sends to webhook / SIEM / ticket system
+       v
+  [Ticket or notification created]
+       |
+       | fix committed via Git, Argo CD reconciles
+       v
+  [Violation cleared]
+       |
+       | metric drops to 0, alert resolves
+       v
+  [Clean state]
+
+
+  =====================================================================
+
+  WHAT A THIRD POLICY WOULD LOOK LIKE
+  =====================================
+  (Not implemented — shown as example for audience questions)
+
+  Policy:    disallow-privileged
+  File:      policies/kyverno/disallow-privileged.yaml (does not exist yet)
+
+  What it checks:
+    securityContext.privileged: true
+
+  Business case:
+    A privileged container has nearly full access to the host node.
+    If compromised, the attacker can escape the container and access
+    the node filesystem, other pods, and node credentials.
+    This is a high-severity security signal, not a hygiene issue.
+
+  Severity:  high
+  Fix:       remove privileged: true, redesign if the app needs it
+
+  Why it is not in the workshop:
+    The demo-app already has a clean securityContext.
+    Adding a third violation type would dilute the narrative.
+    One or two policies demonstrated well beats three policies
+    demonstrated poorly.

@@ -1,0 +1,19 @@
+# Claude Code
+.claude/
+
+# Docs (presenter-internal)
+docs/
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+*.swp

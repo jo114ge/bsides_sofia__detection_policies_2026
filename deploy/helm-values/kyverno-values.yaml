@@ -1,0 +1,23 @@
+admissionController:
+  replicas: 1
+  serviceMonitor:
+    enabled: true
+
+backgroundController:
+  replicas: 1
+
+cleanupController:
+  enabled: false
+
+reportsController:
+  replicas: 1
+  serviceMonitor:
+    enabled: true
+
+grafana:
+  enabled: false
+
+features:
+  policyReports:
+    enabled: true
+
