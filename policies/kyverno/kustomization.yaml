@@ -4,7 +4,7 @@ kind: Kustomization
 resources:
   # --- ALWAYS ACTIVE (baseline) ---
   - disallow-latest.yaml
-  #- require-requests.yaml
+  - require-requests.yaml
 
   # --- WORKSHOP SCENARIOS — uncomment ONE at a time to activate ---
 

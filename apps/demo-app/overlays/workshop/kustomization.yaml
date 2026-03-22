@@ -25,11 +25,11 @@ labels:
 #       name: demo-app
 
 # SCENARIO 2 — require-requests
-# patches:
-#   - path: bad-resources-patch.yaml
-#     target:
-#       kind: Deployment
-#       name: demo-app
+  patches:
+    - path: bad-resources-patch.yaml
+      target:
+        kind: Deployment
+        name: demo-app
 
 # SCENARIO 3 — disallow-privileged
 # patches:
