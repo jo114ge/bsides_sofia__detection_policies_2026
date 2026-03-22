@@ -18,18 +18,18 @@ labels:
 # ---------------------------------------------------------------
 
 # SCENARIO 1 — disallow-latest
-# patches:
-#   - path: bad-image-patch.yaml
-#     target:
-#       kind: Deployment
-#       name: demo-app
-
-# SCENARIO 2 — require-requests
 patches:
-  - path: bad-resources-patch.yaml
+  - path: bad-image-patch.yaml
     target:
       kind: Deployment
       name: demo-app
+
+# SCENARIO 2 — require-requests
+#  patches:
+#  - path: bad-resources-patch.yaml
+#    target:
+#      kind: Deployment
+#      name: demo-app
 
 # SCENARIO 3 — disallow-privileged
 # patches:
