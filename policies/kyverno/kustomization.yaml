@@ -11,12 +11,12 @@ resources:
   # SCENARIO 3 — disallow-privileged
   # Signal: container with privileged:true or allowPrivilegeEscalation:true
   # Severity: HIGH — container can escape to the host node
-  - disallow-privileged.yaml
+  #- disallow-privileged.yaml
 
   # SCENARIO 4 — disallow-run-as-root
   # Signal: container running as UID 0
   # Severity: HIGH — most CVE exploits require root
-  # - disallow-run-as-root.yaml
+  - disallow-run-as-root.yaml
 
   # SCENARIO 5 — restrict-image-registries
   # Signal: image pulled from docker.io instead of internal registry
