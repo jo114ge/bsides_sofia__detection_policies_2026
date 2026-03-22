@@ -39,18 +39,18 @@ labels:
 #      name: demo-app
 
 # SCENARIO 4 — disallow-run-as-root
+#patches:
+#  - path: bad-run-as-root-patch.yaml
+#    target:
+#      kind: Deployment
+#      name: demo-app
+
+# SCENARIO 5 — restrict-image-registries
 patches:
-  - path: bad-run-as-root-patch.yaml
+  - path: bad-image-registry-patch.yaml
     target:
       kind: Deployment
       name: demo-app
-
-# SCENARIO 5 — restrict-image-registries
-# patches:
-#   - path: bad-image-registry-patch.yaml
-#     target:
-#       kind: Deployment
-#       name: demo-app
 
 # SCENARIO 6 — disallow-host-namespaces
 # patches:
