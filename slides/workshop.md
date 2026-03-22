@@ -523,6 +523,34 @@ resource "kubernetes_config_map" "workshop_metadata" {
 
 ---
 
+## Terraform — four layers
+
+<style scoped>pre { font-size: 0.58em; line-height: 1.3; }</style>
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  LAYER 0  terraform apply (once)                             │
+│           creates namespaces + workshop-metadata ConfigMap   │
+└──────────────────────────────────────────┬───────────────────┘
+                                           │
+┌──────────────────────────────────────────▼───────────────────┐
+│  LAYER 1  helm install (once per tool)                       │
+│           installs Argo CD, Kyverno, Prometheus stack        │
+└──────────────────────────────────────────┬───────────────────┘
+                                           │
+┌──────────────────────────────────────────▼───────────────────┐
+│  LAYER 2  Argo CD watches Git (continuous)                   │
+│           syncs demo-app, policies, Prometheus rules         │
+└──────────────────────────────────────────┬───────────────────┘
+                                           │
+┌──────────────────────────────────────────▼───────────────────┐
+│  LAYER 3  Kyverno evaluates (continuous)                     │
+│           violations → Prometheus → Grafana → Alert          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Helm and Kustomize — two different layers
 
 | | **Helm** | **Kustomize** |
@@ -654,30 +682,24 @@ Expected: app running, no violations, Grafana shows 0.
 
 ## State 1 — Introduce the bad config
 
-```bash
-cat apps/demo-app/overlays/workshop/bad-image-patch.yaml
-```
+The patch file already exists. We just need to activate it via Git.
 
-```yaml
-# This patch overwrites ONLY the image field
-spec:
-  template:
-    spec:
-      containers:
-        - name: web
-          image: nginxinc/nginx-unprivileged:latest  ← violates disallow-latest
-```
-
-Activate it in `kustomization.yaml`:
+In `apps/demo-app/overlays/workshop/kustomization.yaml`, uncomment:
 
 ```yaml
 patches:
   - path: bad-image-patch.yaml
-    target: { kind: Deployment, name: demo-app }
+    target:
+      kind: Deployment
+      name: demo-app
 ```
 
+Then push — Argo CD does the rest:
+
 ```bash
-kubectl --context k3d-workshop apply -k apps/demo-app/overlays/workshop
+git add apps/demo-app/overlays/workshop/kustomization.yaml
+git commit -m "demo: activate scenario 1 - disallow-latest"
+git push
 ```
 
 ---
@@ -897,9 +919,17 @@ Month 3+   →  Consider Enforce for the most critical ones.
 
 The same mechanism that introduced the problem brings the fix.
 
+Comment out the `patches:` block in `kustomization.yaml` and push:
+
 ```bash
-# Remove the patches: section from kustomization.yaml
-kubectl --context k3d-workshop apply -k apps/demo-app/overlays/workshop
+git add apps/demo-app/overlays/workshop/kustomization.yaml
+git commit -m "demo: revert to clean baseline"
+git push
+```
+
+Argo CD reconciles automatically (~30s):
+
+```bash
 kubectl --context k3d-workshop -n demo rollout status deployment/demo-app
 ```
 
@@ -1178,6 +1208,7 @@ cat diagrams/7-prometheus-alert-flow-ascii.txt# PromQL + alert states
 cat diagrams/8-grafana-how-it-works-ascii.txt # panels + timing
 cat diagrams/9-helm-kustomize-ascii.txt      # Helm vs Kustomize
 cat diagrams/10-siem-integration-ascii.txt   # 3 paths + rule types
+cat diagrams/11-terraform-ascii.txt          # bootstrap layers
 ```
 
 ---

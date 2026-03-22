@@ -1,0 +1,145 @@
+================================================================================
+DIAGRAM 11 — TERRAFORM: DECLARATIVE BOOTSTRAP
+BSides Sofia 2026 · Policy-as-Detection for Kubernetes
+================================================================================
+
+WHAT TERRAFORM DOES IN THIS WORKSHOP
+─────────────────────────────────────
+Terraform is a one-time bootstrap layer. It creates the scaffolding
+that GitOps (Argo CD) and the policy engine (Kyverno) need to run.
+You run it once before the workshop. After that, Git owns everything.
+
+"Infrastructure as Code" — the cluster's initial state is declared in .tf
+files and version-controlled, just like the application manifests.
+
+
+HOW IT WORKS (CONCEPTUAL)
+──────────────────────────
+
+  terraform apply
+       │
+       ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  Terraform reads main.tf                                        │
+  │                                                                 │
+  │  for each resource block:                                       │
+  │    - does it exist in the cluster?                              │
+  │        NO  → create it                                          │
+  │        YES, different → update it                               │
+  │        YES, same      → do nothing                              │
+  └─────────────────────────────────────────────────────────────────┘
+       │
+       ▼
+  State file (terraform.tfstate)
+  Records what was created so the next run knows what already exists.
+  ⚠  Keep this file safe — it is the source of truth for Terraform.
+
+
+WHAT IT CREATES IN THE CLUSTER
+────────────────────────────────
+
+  terraform/main.tf
+  │
+  ├── kubernetes_namespace "demo"
+  │     name:   demo
+  │     labels: owner=platform-team, env=workshop
+  │     └── used by Kyverno to identify the owner of a violation
+  │
+  ├── kubernetes_namespace "argocd"
+  │     name:   argocd
+  │     └── required before Helm installs Argo CD
+  │
+  ├── kubernetes_namespace "kyverno"
+  │     name:   kyverno
+  │     └── required before Helm installs Kyverno
+  │
+  └── kubernetes_config_map "workshop_metadata"
+        namespace: demo
+        data:
+          cluster_name: k3d-workshop
+          owner_team:   platform-team
+          mode:         policy-as-detection
+        └── enriches alerts and tickets with cluster context
+
+
+PROVIDER CONFIGURATION
+───────────────────────
+
+  provider "kubernetes" {
+    config_path    = ~/.kube/config
+    config_context = k3d-workshop     ← targets the local k3d cluster
+  }
+
+  No cloud credentials needed. Talks directly to the local cluster API.
+
+
+WHAT TERRAFORM DOES NOT DO HERE
+─────────────────────────────────
+
+  ✗  Does NOT install Argo CD       →  that is a Helm chart
+  ✗  Does NOT install Kyverno       →  that is a Helm chart
+  ✗  Does NOT deploy the demo app   →  that is Kustomize via Argo CD
+  ✗  Does NOT manage policies       →  those are Git-synced by Argo CD
+  ✗  Does NOT run day-to-day        →  run once, then step back
+
+  Terraform is the parking lot.
+  Argo CD is the car.
+
+
+RELATIONSHIP WITH THE REST OF THE STACK
+─────────────────────────────────────────
+
+  ┌──────────────────────────────────────────────────────────────┐
+  │  LAYER 0  terraform apply (once)                             │
+  │           creates namespaces + workshop-metadata ConfigMap   │
+  └──────────────────────────────────────────┬───────────────────┘
+                                             │
+  ┌──────────────────────────────────────────▼───────────────────┐
+  │  LAYER 1  helm install (once per tool)                       │
+  │           installs Argo CD, Kyverno, Prometheus stack        │
+  └──────────────────────────────────────────┬───────────────────┘
+                                             │
+  ┌──────────────────────────────────────────▼───────────────────┐
+  │  LAYER 2  Argo CD watches Git (continuous)                   │
+  │           syncs demo-app, Kyverno policies, Prometheus rules │
+  └──────────────────────────────────────────┬───────────────────┘
+                                             │
+  ┌──────────────────────────────────────────▼───────────────────┐
+  │  LAYER 3  Kyverno evaluates (continuous)                     │
+  │           records violations → Prometheus → Grafana → Alert  │
+  └──────────────────────────────────────────────────────────────┘
+
+
+WHY NAMESPACE LABELS MATTER FOR DETECTION
+───────────────────────────────────────────
+
+  The demo namespace has:  owner=platform-team
+
+  When a violation fires, Alertmanager includes that label:
+
+  {
+    "policy":    "disallow-latest",
+    "namespace": "demo",
+    "owner":     "platform-team"   ← came from the namespace label
+  }
+
+  Without that label, the ticket has no owner → sits in the queue forever.
+  Terraform puts the label there before any workload is deployed.
+
+
+COMMANDS
+─────────────────
+
+  # First time
+  cd terraform/
+  terraform init
+  terraform apply -var="kube_context=k3d-workshop"
+
+  # Verify
+  kubectl --context k3d-workshop get namespaces
+  kubectl --context k3d-workshop -n demo get configmap workshop-metadata -o yaml
+
+  # Destroy (end of workshop)
+  terraform destroy -var="kube_context=k3d-workshop"
+
+================================================================================
