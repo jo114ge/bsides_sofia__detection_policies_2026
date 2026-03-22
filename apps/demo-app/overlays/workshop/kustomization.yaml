@@ -40,10 +40,10 @@ labels:
 
 # SCENARIO 4 — disallow-run-as-root
 # patches:
-#   - path: bad-run-as-root-patch.yaml
-#     target:
-#       kind: Deployment
-#       name: demo-app
+  - path: bad-run-as-root-patch.yaml
+    target:
+      kind: Deployment
+      name: demo-app
 
 # SCENARIO 5 — restrict-image-registries
 # patches:
