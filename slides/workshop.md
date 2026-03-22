@@ -624,6 +624,26 @@ spec:
 
 ---
 
+## Open the Argo CD UI
+
+```bash
+kubectl --context k3d-workshop -n argocd \
+  port-forward svc/argocd-server 8080:80
+```
+
+→ **http://localhost:8080**
+
+```bash
+# Get the admin password
+kubectl --context k3d-workshop -n argocd \
+  get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d && echo
+```
+
+Username: `admin` · keep this tab open throughout the demo.
+
+---
+
 ## Exercise 1 — Safe change
 
 ```bash
@@ -633,13 +653,18 @@ git commit -m "scale demo-app to 2 replicas"
 git push
 ```
 
+Watch Argo CD detect the drift and apply it — **http://localhost:8080**:
+
+```
+Applications → demo-app
+  Synced → OutOfSync → Syncing → Synced
+```
+
 ```bash
-kubectl --context k3d-workshop -n demo rollout status deployment/demo-app
 kubectl --context k3d-workshop -n demo get pods
 ```
 
 *We changed a number in a YAML file. Pushed it to Git.*
-*Argo CD detected the drift and applied it.*
 *Nobody ran `kubectl apply` manually.*
 
 This is the **same flow** we will use to introduce the violation and the fix.
@@ -673,7 +698,7 @@ kubectl --context k3d-workshop -n demo get pods
 kubectl --context k3d-workshop get policyreport -A
 ```
 
-Expected: app running, no violations, Grafana shows 0.
+Argo CD UI → **demo-app: Synced · Healthy** · Grafana shows 0 violations.
 
 > *"This is the starting point.*
 > *Now we are going to intentionally introduce a bad configuration."*
@@ -681,8 +706,6 @@ Expected: app running, no violations, Grafana shows 0.
 ---
 
 ## State 1 — Introduce the bad config
-
-The patch file already exists. We just need to activate it via Git.
 
 In `apps/demo-app/overlays/workshop/kustomization.yaml`, uncomment:
 
@@ -694,13 +717,15 @@ patches:
       name: demo-app
 ```
 
-Then push — Argo CD does the rest:
+Push and watch Argo CD sync in real time:
 
 ```bash
 git add apps/demo-app/overlays/workshop/kustomization.yaml
 git commit -m "demo: activate scenario 1 - disallow-latest"
 git push
 ```
+
+→ **http://localhost:8080** — demo-app goes `OutOfSync → Syncing → Synced`
 
 ---
 
