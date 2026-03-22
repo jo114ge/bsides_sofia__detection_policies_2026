@@ -16,11 +16,11 @@ labels:
 # SCENARIO 1 — disallow-latest
 # Triggers: image uses :latest tag
 # Policy:   disallow-latest
-patches:
-  - path: bad-image-patch.yaml
-    target:
-      kind: Deployment
-      name: demo-app
+# patches:
+#   - path: bad-image-patch.yaml
+#     target:
+#       kind: Deployment
+#       name: demo-app
 
 # SCENARIO 2 — require-requests
 # Triggers: container has no resource requests
