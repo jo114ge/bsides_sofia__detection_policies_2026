@@ -11,19 +11,19 @@ resources:
   # SCENARIO 3 — disallow-privileged
   # Signal: container with privileged:true or allowPrivilegeEscalation:true
   # Severity: HIGH — container can escape to the host node
-  - disallow-privileged.yaml
+  # - disallow-privileged.yaml
 
   # SCENARIO 4 — disallow-run-as-root
   # Signal: container running as UID 0
   # Severity: HIGH — most CVE exploits require root
-  - disallow-run-as-root.yaml
+  # - disallow-run-as-root.yaml
 
   # SCENARIO 5 — restrict-image-registries
   # Signal: image pulled from docker.io instead of internal registry
   # Severity: HIGH — typosquatting / dependency confusion for containers
-  - restrict-image-registries.yaml
+  # - restrict-image-registries.yaml
 
   # SCENARIO 6 — disallow-host-namespaces
   # Signal: pod uses hostNetwork, hostPID, or hostIPC
   # Severity: CRITICAL — sandbox boundary broken
-  - disallow-host-namespaces.yaml
+  # - disallow-host-namespaces.yaml

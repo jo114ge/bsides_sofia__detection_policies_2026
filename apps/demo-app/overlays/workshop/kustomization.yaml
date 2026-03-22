@@ -13,51 +13,60 @@ labels:
 # WORKSHOP PATCHES — uncomment ONE at a time to trigger a violation
 # ---------------------------------------------------------------
 
-patches:
-  # SCENARIO 1 — disallow-latest
-  # Triggers: image uses :latest tag
-  # Policy:   disallow-latest
-  - path: bad-image-patch.yaml
-    target:
-      kind: Deployment
-      name: demo-app
+# ---------------------------------------------------------------
+# WORKSHOP PATCHES — uncomment ONE at a time to trigger a violation
+# ---------------------------------------------------------------
 
-  # SCENARIO 2 — require-requests
-  # Triggers: container has no resource requests
-  # Policy:   require-requests
-  - path: bad-resources-patch.yaml
-    target:
-      kind: Deployment
-      name: demo-app
+# SCENARIO 1 — disallow-latest
+# Triggers: image uses :latest tag
+# Policy:   disallow-latest
+# patches:
+#   - path: bad-image-patch.yaml
+#     target:
+#       kind: Deployment
+#       name: demo-app
 
-  # SCENARIO 3 — disallow-privileged
-  # Triggers: container runs with privileged: true
-  # Policy:   disallow-privileged
-  - path: bad-privileged-patch.yaml
-    target:
-      kind: Deployment
-      name: demo-app
+# SCENARIO 2 — require-requests
+# Triggers: container has no resource requests
+# Policy:   require-requests
+# patches:
+#   - path: bad-resources-patch.yaml
+#     target:
+#       kind: Deployment
+#       name: demo-app
 
-  # SCENARIO 4 — disallow-run-as-root
-  # Triggers: container runs as UID 0
-  # Policy:   disallow-run-as-root
-  - path: bad-run-as-root-patch.yaml
-    target:
-      kind: Deployment
-      name: demo-app
+# SCENARIO 3 — disallow-privileged
+# Triggers: container runs with privileged: true
+# Policy:   disallow-privileged — uncomment in policies/kyverno/kustomization.yaml first
+# patches:
+#   - path: bad-privileged-patch.yaml
+#     target:
+#       kind: Deployment
+#       name: demo-app
 
-  # SCENARIO 5 — restrict-image-registries
-  # Triggers: image pulled from docker.io instead of internal registry
-  # Policy:   restrict-image-registries
-  - path: bad-image-registry-patch.yaml
-    target:
-      kind: Deployment
-      name: demo-app
+# SCENARIO 4 — disallow-run-as-root
+# Triggers: container runs as UID 0
+# Policy:   disallow-run-as-root — uncomment in policies/kyverno/kustomization.yaml first
+# patches:
+#   - path: bad-run-as-root-patch.yaml
+#     target:
+#       kind: Deployment
+#       name: demo-app
 
-  # SCENARIO 6 — disallow-host-namespaces
-  # Triggers: pod uses hostNetwork, hostPID, hostIPC
-  # Policy:   disallow-host-namespaces
-  - path: bad-host-namespaces-patch.yaml
-    target:
-      kind: Deployment
-      name: demo-app
+# SCENARIO 5 — restrict-image-registries
+# Triggers: image pulled from docker.io instead of internal registry
+# Policy:   restrict-image-registries — uncomment in policies/kyverno/kustomization.yaml first
+# patches:
+#   - path: bad-image-registry-patch.yaml
+#     target:
+#       kind: Deployment
+#       name: demo-app
+
+# SCENARIO 6 — disallow-host-namespaces
+# Triggers: pod uses hostNetwork, hostPID, hostIPC
+# Policy:   disallow-host-namespaces — uncomment in policies/kyverno/kustomization.yaml first
+# patches:
+#   - path: bad-host-namespaces-patch.yaml
+#     target:
+#       kind: Deployment
+#       name: demo-app
