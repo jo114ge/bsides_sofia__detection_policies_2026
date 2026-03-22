@@ -1,7 +1,8 @@
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: Policy
 metadata:
   name: disallow-run-as-root
+  namespace: demo
   annotations:
     policies.kyverno.io/title: Disallow running as root
     policies.kyverno.io/category: Security
@@ -20,9 +21,6 @@ spec:
           - resources:
               kinds:
                 - Deployment
-              namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: demo
       validate:
         message: "Containers must not run as root. Set runAsNonRoot:true and runAsUser to a non-zero UID."
         pattern:
@@ -40,9 +38,6 @@ spec:
           - resources:
               kinds:
                 - Pod
-              namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: demo
       validate:
         message: "Containers must not run as root. Set runAsNonRoot:true and runAsUser to a non-zero UID."
         pattern:

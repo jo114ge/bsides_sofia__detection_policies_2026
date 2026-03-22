@@ -1,7 +1,8 @@
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: Policy
 metadata:
   name: restrict-image-registries
+  namespace: demo
   annotations:
     policies.kyverno.io/title: Restrict image registries
     policies.kyverno.io/category: Security
@@ -21,9 +22,6 @@ spec:
           - resources:
               kinds:
                 - Deployment
-              namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: demo
       validate:
         message: "Images must be pulled from an approved registry, not docker.io/library."
         pattern:
@@ -39,9 +37,6 @@ spec:
           - resources:
               kinds:
                 - Pod
-              namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: demo
       validate:
         message: "Images must be pulled from an approved registry, not docker.io/library."
         pattern:

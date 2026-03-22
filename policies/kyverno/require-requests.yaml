@@ -1,7 +1,8 @@
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: Policy
 metadata:
   name: require-requests
+  namespace: demo
   annotations:
     policies.kyverno.io/title: Require resource requests
     policies.kyverno.io/category: Reliability
@@ -17,9 +18,6 @@ spec:
           - resources:
               kinds:
                 - Deployment
-              namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: demo
       validate:
         message: "Containers must define CPU and memory requests."
         pattern:

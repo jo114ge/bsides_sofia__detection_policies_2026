@@ -1,7 +1,8 @@
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: Policy
 metadata:
   name: disallow-host-namespaces
+  namespace: demo
   annotations:
     policies.kyverno.io/title: Disallow host namespaces
     policies.kyverno.io/category: Security
@@ -21,9 +22,6 @@ spec:
           - resources:
               kinds:
                 - Deployment
-              namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: demo
       validate:
         message: "Pods must not use hostNetwork, hostPID, or hostIPC. These break the sandbox boundary."
         pattern:
@@ -40,9 +38,6 @@ spec:
           - resources:
               kinds:
                 - Pod
-              namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: demo
       validate:
         message: "Pods must not use hostNetwork, hostPID, or hostIPC. These break the sandbox boundary."
         pattern:

@@ -11,7 +11,7 @@ spec:
     path: policies/kyverno
   destination:
     server: https://kubernetes.default.svc
-    namespace: kyverno
+    namespace: demo
   syncPolicy:
     automated:
       prune: true

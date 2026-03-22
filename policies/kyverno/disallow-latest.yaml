@@ -1,7 +1,8 @@
 apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+kind: Policy
 metadata:
   name: disallow-latest
+  namespace: demo
   annotations:
     policies.kyverno.io/title: Disallow latest tag
     policies.kyverno.io/category: Security
@@ -17,9 +18,6 @@ spec:
           - resources:
               kinds:
                 - Deployment
-              namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: demo
       validate:
         message: "Images must not use the latest tag. Pin to a specific version."
         pattern:
@@ -35,9 +33,6 @@ spec:
           - resources:
               kinds:
                 - Pod
-              namespaceSelector:
-                matchLabels:
-                  kubernetes.io/metadata.name: demo
       validate:
         message: "Images must not use the latest tag. Pin to a specific version."
         pattern:
