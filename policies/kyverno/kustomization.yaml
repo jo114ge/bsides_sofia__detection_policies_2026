@@ -21,9 +21,9 @@ resources:
   # SCENARIO 5 — restrict-image-registries
   # Signal: image pulled from docker.io instead of internal registry
   # Severity: HIGH — typosquatting / dependency confusion for containers
-  - restrict-image-registries.yaml
+ # - restrict-image-registries.yaml
 
   # SCENARIO 6 — disallow-host-namespaces
   # Signal: pod uses hostNetwork, hostPID, or hostIPC
   # Severity: CRITICAL — sandbox boundary broken
-  # - disallow-host-namespaces.yaml
+  - disallow-host-namespaces.yaml

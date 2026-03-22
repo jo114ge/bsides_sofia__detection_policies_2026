@@ -46,15 +46,15 @@ labels:
 #      name: demo-app
 
 # SCENARIO 5 — restrict-image-registries
+#patches:
+#  - path: bad-image-registry-patch.yaml
+#    target:
+#      kind: Deployment
+#      name: demo-app
+
+# SCENARIO 6 — disallow-host-namespaces
 patches:
-  - path: bad-image-registry-patch.yaml
+  - path: bad-host-namespaces-patch.yaml
     target:
       kind: Deployment
       name: demo-app
-
-# SCENARIO 6 — disallow-host-namespaces
-# patches:
-#   - path: bad-host-namespaces-patch.yaml
-#     target:
-#       kind: Deployment
-#       name: demo-app
